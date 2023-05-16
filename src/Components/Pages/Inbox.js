@@ -18,7 +18,7 @@ function removeSpecialChar(mail) {
 function countUnreadMessages(arr) {
   let unreadeMessages = 0;
   for (let i = 0; i < arr.length; i++) {
-    if (!arr.isReaded) {
+    if (!arr[i].isReaded) {
       unreadeMessages = unreadeMessages + 1;
     }
   }
@@ -34,23 +34,20 @@ function Inbox() {
     e.preventDefault();
     history.push("/composemail");
   }
-  const handleReadedMessage = async (message) => {
-    console.log(message)
-    console.log("clicked");
-    console.log(user,message.name);
+
+  const handleReadedMessage = async (msg) => {
     try {
       let responce = await fetch(
-        `https://react-http-310b4-default-rtdb.firebaseio.com/expenses/${user}/${message.name}.json`,
+        `https://react-http-310b4-default-rtdb.firebaseio.com/expenses/${user}/${msg.name}.json`,
         {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
           },
-          body:{"isReaded":true}
+          body: JSON.stringify({ "isReaded": true })
         }
       )
       if (responce.ok) {
-        alert("Readed")
       } else {
         throw new Error("Failed to Read mail")
       }
@@ -58,11 +55,33 @@ function Inbox() {
       console.log(error)
     }
   }
+
+  const handleDelete = async (msg) => {
+    try {
+      let responce = await fetch(
+        `https://react-http-310b4-default-rtdb.firebaseio.com/expenses/${user}/${msg.name}.json`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      )
+      if (responce.ok) {
+        console.log("deleted successfully")
+      } else {
+        throw new Error("Failed to delete mail")
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
   useEffect(() => {
     async function fetchMessages() {
       try {
         let responce = await fetch(
-          `https://react-http-310b4-default-rtdb.firebaseio.com/expenses/${user}.json`,
+          `https://react-http-310b4-default-rtdb.firebaseio.com/expenses/${(user)}.json`,
           {
             method: 'GET',
             headers: {
@@ -72,14 +91,20 @@ function Inbox() {
         )
         if (responce.ok) {
           let data = await responce.json();
-          console.log(data);
-          const keys = Object.keys(data);
           let newMessageArray = [];
-          keys.forEach((key) => {
-            newMessageArray.unshift({ ...data[key], name: key })
-          });
-          console.log(newMessageArray);
-          dispatch(messageActions.setMessages(newMessageArray));
+          if (data == null) {
+            newMessageArray = [];
+            dispatch(messageActions.setMessages(newMessageArray));
+            dispatch(messageActions.setUnreadMessages(countUnreadMessages(newMessageArray)));
+          } else {
+            const keys = Object.keys(data);
+            keys.forEach((key) => {
+              newMessageArray.unshift({ ...data[key], name: key })
+            });
+            console.log(newMessageArray);
+            dispatch(messageActions.setMessages(newMessageArray));
+            dispatch(messageActions.setUnreadMessages(countUnreadMessages(newMessageArray)));
+          }
         } else {
           throw new Error("Failed to fetch mail")
         }
@@ -89,15 +114,14 @@ function Inbox() {
     }
     let fetching = setTimeout(() => {
       fetchMessages();
-    }, 10000);
+    }, 2000);
     return () => {
       clearTimeout(fetching);
     }
-  }, [user, messages])
+  }, [messages,user,dispatch])
 
   return (
     <div className='container'>
-
       <div className='my-2  mx-2 row'>
         <h1 className="fst-italic col-md-8" >
           Welcome to your mail box!!!
@@ -114,22 +138,38 @@ function Inbox() {
         <span className='float-right h4'>Unread Messages:{countUnreadMessages(messages)}</span>
       </div>
       {messages.map((message) => {
-        return <Accordion defaultActiveKey="0" onClick={() =>handleReadedMessage(message)}>
-          <Accordion.Item eventKey="1">
-            <Accordion.Header>{!message.isReaded && <Dot width={30} height={30} color="blue" />} From:{message.Sender}</Accordion.Header>
-            <Accordion.Body>
-              <h5>Subject:{message.mailSubject}</h5>
-              <p>{message.mailContent}</p>
-            </Accordion.Body>
-          </Accordion.Item>
-        </Accordion>
+        return <div key={message.name}>
+          <div className="container">
+            <div className="row">
+              <div className="col-11">
+                <Accordion defaultActiveKey="0" onClick={() => handleReadedMessage(message)}>
+                  <Accordion.Item eventKey="1">
+                    <Accordion.Header>
+                      {!message.isReaded && <Dot width={30} height={30} color="blue" />}
+                      From:{message.Sender}
+                    </Accordion.Header>
+                    <Accordion.Body>
+                      <h5>Subject:{message.mailSubject}</h5>
+                      <p>{message.mailContent}</p>
+                    </Accordion.Body>
+                  </Accordion.Item>
+                </Accordion>
+              </div>
+              <div className="col-1">
+                <Button variant="danger" onClick={() => handleDelete(message)}>
+                  DELETE
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       })
       }
     </div>
   )
 }
 
-export default Inbox;
+export default Inbox ;
 
 
 
